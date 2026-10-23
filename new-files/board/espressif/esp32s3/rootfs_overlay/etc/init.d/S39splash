@@ -1,0 +1,91 @@
+#!/bin/sh
+# S39splash - Debian-style boot splash for the ESP32-S3 NOMMU Linux image.
+# Plain version: no ANSI escape sequences, works in any serial terminal.
+
+CONSOLE=/dev/console
+[ -w "$CONSOLE" ] || CONSOLE=/dev/ttyS0
+[ -w "$CONSOLE" ] || exit 0
+
+say() { printf '%s\n' "$1" >> "$CONSOLE"; }
+pause() { usleep "$1" 2>/dev/null || sleep 1; }
+
+build_box() {
+    hline=''
+    i=0
+    while [ "$i" -lt 66 ]; do
+        hline="${hline}═"
+        i=$((i + 1))
+    done
+    TOP="╔${hline}╗"
+    BOT="╚${hline}╝"
+    BLANK=$(printf '%66s' '')
+}
+
+draw_logo() {
+    say ''
+    say "${TOP}"
+    say "║${BLANK}║"
+    say "║  ███████╗███████╗██████╗ ██████╗ ██████╗       ███████╗██████╗   ║"
+    pause 70000
+    say "║  ██╔════╝██╔════╝██╔══██╗╚════██╗╚════██╗      ██╔════╝╚════██╗  ║"
+    pause 70000
+    say "║  █████╗  ███████╗██████╔╝ █████╔╝ █████╔╝█████╗███████╗ █████╔╝  ║"
+    pause 70000
+    say "║  ██╔══╝  ╚════██║██╔═══╝  ╚═══██╗██╔═══╝ ╚════╝╚════██║ ╚═══██╗  ║"
+    pause 70000
+    say "║  ███████╗███████║██║     ██████╔╝███████╗      ███████║██████╔╝  ║"
+    pause 70000
+    say "║  ╚══════╝╚══════╝╚═╝     ╚═════╝ ╚══════╝      ╚══════╝╚═════╝   ║"
+    say "║${BLANK}║"
+    NAME='y o s a K u n'
+    PADL=$(printf '%26s' '')
+    PADR=$(printf '%27s' '')
+    say "║${PADL}${NAME}${PADR}║"
+    say "║${BLANK}║"
+    say "${BOT}"
+}
+
+draw_progress() {
+    say ''
+    for n in 0 7 15 22 30; do
+        bar=''
+        i=0
+        while [ "$i" -lt 30 ]; do
+            if [ "$i" -lt "$n" ]; then
+                bar="${bar}█"
+            else
+                bar="${bar}░"
+            fi
+            i=$((i + 1))
+        done
+        pct=$((n * 100 / 30))
+        printf '  [%s] %3d%%  Booting Linux 7.2.4 (NOMMU)\n' "$bar" "$pct" >> "$CONSOLE"
+        pause 450000
+    done
+    say ''
+    say '  Welcome to ESP32-S3 Linux'
+}
+
+start() {
+    build_box
+    draw_logo
+    draw_progress
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        ;;
+    restart|reload)
+        start
+        ;;
+    status)
+        echo 'splash: enabled'
+        ;;
+    *)
+        echo "usage: $0 {start|stop|restart|status}" >&2
+        exit 1
+        ;;
+esac
