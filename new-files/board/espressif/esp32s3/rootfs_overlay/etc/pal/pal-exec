@@ -1,0 +1,31 @@
+#!/bin/sh
+# usage: pal-exec run FILE [TIMEOUT_S] [HEAP_KB]
+cmd=${1:-}
+file=${2:-}
+timeout=${3:-30}
+heap=${4:-256}
+
+if [ "$cmd" != run ] || [ -z "$file" ] || [ ! -f "$file" ]; then
+    echo "usage: pal-exec run FILE [TIMEOUT_S] [HEAP_KB]" >&2
+    exit 2
+fi
+case "$timeout" in ''|*[!0-9]*) echo "pal-exec: bad timeout" >&2; exit 2 ;; esac
+case "$heap" in ''|*[!0-9]*) echo "pal-exec: bad heap" >&2; exit 2 ;; esac
+
+out=$(mktemp /tmp/pal-exec.XXXXXX) || exit 1
+setsid micropython -X heapsize="${heap}K" "$file" >"$out" 2>&1 &
+pid=$!
+(
+    sleep "$timeout"
+    kill -TERM -"$pid" 2>/dev/null
+    sleep 1
+    kill -KILL -"$pid" 2>/dev/null
+) &
+wd=$!
+wait "$pid"
+rc=$?
+kill "$wd" 2>/dev/null
+head -c 4096 "$out"
+rm -f "$out"
+echo "[pal-exec] exit=$rc timeout=${timeout}s heap=${heap}K"
+[ "$rc" -eq 0 ] || exit "$rc"

@@ -1,0 +1,14 @@
+#!/bin/sh
+SOCK=/run/palio.sock
+if [ ! -S "$SOCK" ]; then
+    echo '{"ok":false,"error":"broker not running"}'
+    exit 1
+fi
+resp=$( { printf '%s\n' "$*"; usleep 1000000; } | socat - UNIX-CONNECT:"$SOCK" )
+rc=$?
+printf '%s\n' "$resp"
+if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+case "$resp" in
+    *'"ok":false'*) exit 1 ;;
+esac
+exit 0

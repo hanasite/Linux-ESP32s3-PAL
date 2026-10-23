@@ -1,0 +1,39 @@
+#!/bin/sh
+PAL=/etc/pal
+SOCK=/run/palio.sock
+PID=/run/palio.pid
+
+start() {
+    [ -x "$PAL/broker.sh" ] || exit 0
+    [ -f "$PAL/board.conf" ] || exit 0
+    mkdir -p /run
+    if [ -f "$PID" ]; then
+        kill "$(cat "$PID")" 2>/dev/null || true
+    fi
+    rm -f "$PID" "$SOCK"
+    setsid socat UNIX-LISTEN:"$SOCK",fork,max-children=4,unlink-early,mode=0660,group=pal EXEC:"$PAL/broker.sh" >/dev/null 2>&1 &
+    echo $! > "$PID"
+    n=0
+    while [ ! -S "$SOCK" ] && [ "$n" -lt 5 ]; do
+        sleep 1
+        n=$((n + 1))
+    done
+    if [ ! -S "$SOCK" ]; then
+        echo "S38pal: broker socket not created" >&2
+        return 1
+    fi
+}
+
+stop() {
+    if [ -f "$PID" ]; then
+        kill "$(cat "$PID")" 2>/dev/null || true
+    fi
+    rm -f "$PID" "$SOCK"
+}
+
+case "$1" in
+    start) start ;;
+    stop) stop ;;
+    restart|reload) stop; start ;;
+    *) echo "usage: $0 {start|stop|restart}" >&2; exit 2 ;;
+esac
